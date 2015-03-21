@@ -144,16 +144,16 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
                 final MappingConfig conf = config;
 
                 // validates access token
-                TokenValidationListener validatorListener = new TokenValidationListenerExtension(request, channel, conf, responseListener, endpoint);
-
-                channel.getPipeline().getContext("handler").setAttachment(validatorListener);
                 if (ServerConfig.getTokenValidateHost() == null || ServerConfig.getTokenValidateHost().isEmpty() || ServerConfig.getTokenValidatePort() == null) {
                     log.error("token.validation.host and token.validation.port properties are not set. Cannot validate access token.");
                     writeResponseToChannel(channel, request, HttpResponseFactory.createUnauthorizedResponse(INVALID_ACCESS_TOKEN));
-                } else {
-                    HttpRequest validateReq = createTokenValidateRequest(accessToken);
-                    client.sendValidation(validateReq, ServerConfig.getTokenValidateHost(), ServerConfig.getTokenValidatePort(), validatorListener);
+                    return;
                 }
+                TokenValidationListener validatorListener = new TokenValidationListenerExtension(request, channel, conf, responseListener, endpoint);
+                channel.getPipeline().getContext("handler").setAttachment(validatorListener);
+
+                HttpRequest validateReq = createTokenValidateRequest(accessToken);
+                client.sendValidation(validateReq, ServerConfig.getTokenValidateHost(), ServerConfig.getTokenValidatePort(), validatorListener);
             } else {
                 try {
                     BasicFilter filter = getMappingFilter(mapping, config, channel);
