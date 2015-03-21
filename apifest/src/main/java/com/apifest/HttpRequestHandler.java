@@ -144,52 +144,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
                 final MappingConfig conf = config;
 
                 // validates access token
-                TokenValidationListener validatorListener = new TokenValidationListener() {
-                    @Override
-                    public void responseReceived(HttpMessage response) {
-                        HttpMessage tokenResponse = response;
-                        if (response instanceof HttpResponse) {
-                            HttpResponse tokenValidationResponse = (HttpResponse) response;
-                            if (!HttpResponseStatus.OK.equals(tokenValidationResponse.getStatus())) {
-                                writeResponseToChannel(channel, request, HttpResponseFactory.createUnauthorizedResponse(INVALID_ACCESS_TOKEN));
-                                return;
-                            }
-                            String tokenContent = tokenValidationResponse.getContent().toString(CharsetUtil.UTF_8);
-                            boolean scopeOk = AccessTokenValidator.validateTokenScope(tokenContent, endpoint.getScope());
-                            if (!scopeOk) {
-                                log.debug("access token scope not valid");
-                                writeResponseToChannel(channel, request, HttpResponseFactory.createUnauthorizedResponse(INVALID_ACCESS_TOKEN_SCOPE));
-                                return;
-                            }
-
-                            String userId = BasicAction.getUserId(tokenValidationResponse);
-                            if ((MappingEndpoint.AUTH_TYPE_USER.equals(endpoint.getAuthType()) && (userId != null && userId.length() > 0)) ||
-                                    MappingEndpoint.AUTH_TYPE_CLIENT_APP.equals(endpoint.getAuthType())) {
-                                try {
-                                    HttpRequest mappedReq = mapRequest(request, endpoint, conf, tokenValidationResponse);
-                                    channel.getPipeline().getContext("handler").setAttachment(responseListener);
-                                    client.send(mappedReq, endpoint.getBackendHost(), endpoint.getBackendPort(), responseListener);
-                                } catch (MappingException e) {
-                                    log.error("cannot map request", e);
-                                    LifecycleEventHandlers.invokeExceptionHandler(e, request);
-
-                                    writeResponseToChannel(channel, request, HttpResponseFactory.createISEResponse());
-                                    return;
-                                } catch (UpstreamException ue) {
-                                    writeResponseToChannel(channel, request, ue.getResponse());
-                                    return;
-                                }
-                            } else {
-                                writeResponseToChannel(channel, request, HttpResponseFactory.createUnauthorizedResponse(INVALID_ACCESS_TOKEN_TYPE));
-                                return;
-                            }
-                        } else {
-                            ChannelFuture future = channel.write(tokenResponse);
-                            setConnectTimeout(channel);
-                            future.addListener(ChannelFutureListener.CLOSE);
-                        }
-                    }
-                };
+                TokenValidationListener validatorListener = new TokenValidationListenerExtension(request, channel, conf, responseListener, endpoint);
 
                 channel.getPipeline().getContext("handler").setAttachment(validatorListener);
                 if (ServerConfig.getTokenValidateHost() == null || ServerConfig.getTokenValidateHost().isEmpty() || ServerConfig.getTokenValidatePort() == null) {
@@ -330,4 +285,72 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
         future.addListener(ChannelFutureListener.CLOSE);
 
     }
+
+    private final class TokenValidationListenerExtension extends TokenValidationListener {
+
+        private final HttpRequest request;
+
+        private final Channel channel;
+
+        private final MappingConfig conf;
+
+        private final ResponseListener responseListener;
+
+        private final MappingEndpoint endpoint;
+
+        TokenValidationListenerExtension(HttpRequest request, Channel channel, MappingConfig conf,
+                ResponseListener responseListener, MappingEndpoint endpoint) {
+            this.request = request;
+            this.channel = channel;
+            this.conf = conf;
+            this.responseListener = responseListener;
+            this.endpoint = endpoint;
+        }
+
+        @Override
+        public void responseReceived(HttpMessage response) {
+            HttpMessage tokenResponse = response;
+            if (response instanceof HttpResponse) {
+                HttpResponse tokenValidationResponse = (HttpResponse) response;
+                if (!HttpResponseStatus.OK.equals(tokenValidationResponse.getStatus())) {
+                    writeResponseToChannel(channel, request, HttpResponseFactory.createUnauthorizedResponse(INVALID_ACCESS_TOKEN));
+                    return;
+                }
+                String tokenContent = tokenValidationResponse.getContent().toString(CharsetUtil.UTF_8);
+                boolean scopeOk = AccessTokenValidator.validateTokenScope(tokenContent, endpoint.getScope());
+                if (!scopeOk) {
+                    log.debug("access token scope not valid");
+                    writeResponseToChannel(channel, request, HttpResponseFactory.createUnauthorizedResponse(INVALID_ACCESS_TOKEN_SCOPE));
+                    return;
+                }
+
+                String userId = BasicAction.getUserId(tokenValidationResponse);
+                if ((MappingEndpoint.AUTH_TYPE_USER.equals(endpoint.getAuthType()) && (userId != null && userId.length() > 0)) ||
+                        MappingEndpoint.AUTH_TYPE_CLIENT_APP.equals(endpoint.getAuthType())) {
+                    try {
+                        HttpRequest mappedReq = mapRequest(request, endpoint, conf, tokenValidationResponse);
+                        channel.getPipeline().getContext("handler").setAttachment(responseListener);
+                        client.send(mappedReq, endpoint.getBackendHost(), endpoint.getBackendPort(), responseListener);
+                    } catch (MappingException e) {
+                        log.error("cannot map request", e);
+                        LifecycleEventHandlers.invokeExceptionHandler(e, request);
+
+                        writeResponseToChannel(channel, request, HttpResponseFactory.createISEResponse());
+                        return;
+                    } catch (UpstreamException ue) {
+                        writeResponseToChannel(channel, request, ue.getResponse());
+                        return;
+                    }
+                } else {
+                    writeResponseToChannel(channel, request, HttpResponseFactory.createUnauthorizedResponse(INVALID_ACCESS_TOKEN_TYPE));
+                    return;
+                }
+            } else {
+                ChannelFuture future = channel.write(tokenResponse);
+                setConnectTimeout(channel);
+                future.addListener(ChannelFutureListener.CLOSE);
+            }
+        }
+    }
+
 }
