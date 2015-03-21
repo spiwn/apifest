@@ -36,6 +36,7 @@ public final class ServerConfig {
     protected static final Integer DEFAULT_APIFEST_PORT = 8181;
     protected static final String DEFAULT_APIFEST_HOST = "localhost";
     protected static final String DEFAULT_HAZELCAST_PASS = "dev-pass";
+    protected static final String DEFAULT_OAUTH_TOKEN_VALIDATE_URI = "/oauth20/tokens/validate";
 
     protected static Logger log = LoggerFactory.getLogger(ServerConfig.class);
 
@@ -44,6 +45,7 @@ public final class ServerConfig {
     protected static String mappingsPath;
     protected static String tokenValidateHost;
     protected static Integer tokenValidatePort;
+    protected static String tokenValidateUri;
     protected static Integer connectTimeout;
     protected static String customJarPath;
     protected static String apifestNodes;
@@ -117,6 +119,11 @@ public final class ServerConfig {
             log.warn("token.validate.host property is not defined in properties file");
         }
 
+        tokenValidateUri = props.getProperty("token.validate.uri");
+        if (tokenValidateUri == null || tokenValidateUri.isEmpty()) {
+            tokenValidateUri = DEFAULT_OAUTH_TOKEN_VALIDATE_URI;
+        }
+
         String tokenValidatePortString = props.getProperty("token.validate.port");
         if (tokenValidatePortString == null || tokenValidatePortString.isEmpty()) {
             log.warn("token.validate.port property is not defined in properties file");
@@ -160,6 +167,10 @@ public final class ServerConfig {
 
     public static Integer getTokenValidatePort() {
         return tokenValidatePort;
+    }
+
+    public static String getTokenValidateUri() {
+        return tokenValidateUri;
     }
 
     public static Integer getConnectTimeout() {

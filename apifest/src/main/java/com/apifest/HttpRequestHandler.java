@@ -65,8 +65,6 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
     protected static final String INVALID_ACCESS_TOKEN = "{\"error\":\"access token not valid\"}";
     protected static final String INVALID_ACCESS_TOKEN_TYPE = "{\"error\":\"access token type not valid\"}";
 
-    protected static final String OAUTH_TOKEN_VALIDATE_URI = "/oauth20/tokens/validate";
-
     protected static Logger log = LoggerFactory.getLogger(HttpRequestHandler.class);
 
     private MappingClient client = MappingClient.getClient();
@@ -188,12 +186,12 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
                     };
 
                     channel.getPipeline().getContext("handler").setAttachment(validatorListener);
-                    if (ServerConfig.tokenValidateHost == null || ServerConfig.tokenValidateHost.isEmpty() || ServerConfig.tokenValidatePort == null) {
+                    if (ServerConfig.getTokenValidateHost() == null || ServerConfig.getTokenValidateHost().isEmpty() || ServerConfig.getTokenValidatePort() == null) {
                         log.error("token.validation.host and token.validation.port properties are not set. Cannot validate access token.");
                         writeResponseToChannel(channel, request, HttpResponseFactory.createUnauthorizedResponse(INVALID_ACCESS_TOKEN));
                     } else {
                         HttpRequest validateReq = createTokenValidateRequest(accessToken);
-                        client.sendValidation(validateReq, ServerConfig.tokenValidateHost, ServerConfig.tokenValidatePort, validatorListener);
+                        client.sendValidation(validateReq, ServerConfig.getTokenValidateHost(), ServerConfig.getTokenValidatePort(), validatorListener);
                     }
                 } else {
                     try {
@@ -294,16 +292,16 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
     }
 
     protected HttpRequest createTokenValidateRequest(String accessToken) {
-        QueryStringEncoder enc = new QueryStringEncoder(OAUTH_TOKEN_VALIDATE_URI);
+        QueryStringEncoder enc = new QueryStringEncoder(ServerConfig.getTokenValidateUri());
         enc.addParam("token", accessToken);
-        String uri = OAUTH_TOKEN_VALIDATE_URI;
+        String uri = ServerConfig.getTokenValidateUri();
         try {
             uri = enc.toUri().toString();
         } catch (URISyntaxException e) {
             log.error("cannot build token validation URI", e);
         }
         HttpRequest request = new DefaultHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, uri);
-        request.headers().add(HttpHeaders.Names.HOST, ServerConfig.tokenValidateHost);
+        request.headers().add(HttpHeaders.Names.HOST, ServerConfig.getTokenValidateHost());
         // REVISIT: propagate all custom headers?
         return request;
     }
