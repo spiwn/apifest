@@ -106,120 +106,119 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
                     break;
                 }
             }
-            if (mapping != null) {
-                if (mapping.getAuthType() != null) {
-                    String accessToken = null;
-                    List<String> authorizationHeaders = req.headers().getAll(HttpHeaders.Names.AUTHORIZATION);
-                    for (String header : authorizationHeaders) {
-                        accessToken = AccessTokenValidator.extractAccessToken(header);
-                        if (accessToken != null) {
-                            break;
-                        }
-                    }
-
-                    if (accessToken == null) {
-                        writeResponseToChannel(channel, req, HttpResponseFactory.createUnauthorizedResponse(ACCESS_TOKEN_REQUIRED));
-                        return;
-                    }
-
-                    BasicFilter filter;
-                    try {
-                        filter = getMappingFilter(mapping, config, channel);
-                    } catch (MappingException e2) {
-                        log.error("cannot map request", e2);
-                        LifecycleEventHandlers.invokeExceptionHandler(e2, req);
-                        writeResponseToChannel(channel, req, HttpResponseFactory.createISEResponse());
-                        return;
-                    }
-
-                    final ResponseListener responseListener = createResponseListener(filter, config.getErrors(), channel, req);
-
-                    final HttpRequest request = req;
-                    final MappingEndpoint endpoint = mapping;
-                    final MappingConfig conf = config;
-
-                    // validates access token
-                    TokenValidationListener validatorListener = new TokenValidationListener() {
-                        @Override
-                        public void responseReceived(HttpMessage response) {
-                            HttpMessage tokenResponse = response;
-                            if (response instanceof HttpResponse) {
-                                HttpResponse tokenValidationResponse = (HttpResponse) response;
-                                if (!HttpResponseStatus.OK.equals(tokenValidationResponse.getStatus())) {
-                                    writeResponseToChannel(channel, request, HttpResponseFactory.createUnauthorizedResponse(INVALID_ACCESS_TOKEN));
-                                    return;
-                                }
-                                String tokenContent = tokenValidationResponse.getContent().toString(CharsetUtil.UTF_8);
-                                boolean scopeOk = AccessTokenValidator.validateTokenScope(tokenContent, endpoint.getScope());
-                                if (!scopeOk) {
-                                    log.debug("access token scope not valid");
-                                    writeResponseToChannel(channel, request, HttpResponseFactory.createUnauthorizedResponse(INVALID_ACCESS_TOKEN_SCOPE));
-                                    return;
-                                }
-
-                                String userId = BasicAction.getUserId(tokenValidationResponse);
-                                if ((MappingEndpoint.AUTH_TYPE_USER.equals(endpoint.getAuthType()) && (userId != null && userId.length() > 0)) ||
-                                        MappingEndpoint.AUTH_TYPE_CLIENT_APP.equals(endpoint.getAuthType())) {
-                                    try {
-                                        HttpRequest mappedReq = mapRequest(request, endpoint, conf, tokenValidationResponse);
-                                        channel.getPipeline().getContext("handler").setAttachment(responseListener);
-                                        client.send(mappedReq, endpoint.getBackendHost(), endpoint.getBackendPort(), responseListener);
-                                    } catch (MappingException e) {
-                                        log.error("cannot map request", e);
-                                        LifecycleEventHandlers.invokeExceptionHandler(e, request);
-
-                                        writeResponseToChannel(channel, request, HttpResponseFactory.createISEResponse());
-                                        return;
-                                    } catch (UpstreamException ue) {
-                                        writeResponseToChannel(channel, request, ue.getResponse());
-                                        return;
-                                    }
-                                } else {
-                                    writeResponseToChannel(channel, request, HttpResponseFactory.createUnauthorizedResponse(INVALID_ACCESS_TOKEN_TYPE));
-                                    return;
-                                }
-                            } else {
-                                ChannelFuture future = channel.write(tokenResponse);
-                                setConnectTimeout(channel);
-                                future.addListener(ChannelFutureListener.CLOSE);
-                            }
-                        }
-                    };
-
-                    channel.getPipeline().getContext("handler").setAttachment(validatorListener);
-                    if (ServerConfig.getTokenValidateHost() == null || ServerConfig.getTokenValidateHost().isEmpty() || ServerConfig.getTokenValidatePort() == null) {
-                        log.error("token.validation.host and token.validation.port properties are not set. Cannot validate access token.");
-                        writeResponseToChannel(channel, request, HttpResponseFactory.createUnauthorizedResponse(INVALID_ACCESS_TOKEN));
-                    } else {
-                        HttpRequest validateReq = createTokenValidateRequest(accessToken);
-                        client.sendValidation(validateReq, ServerConfig.getTokenValidateHost(), ServerConfig.getTokenValidatePort(), validatorListener);
-                    }
-                } else {
-                    try {
-                        BasicFilter filter = getMappingFilter(mapping, config, channel);
-                        ResponseListener responseListener = createResponseListener(filter, config.getErrors(), channel, req);
-
-                        channel.getPipeline().getContext("handler").setAttachment(responseListener);
-
-                        HttpRequest mappedReq = mapRequest(req, mapping, config, null);
-                        client.send(mappedReq, mapping.getBackendHost(), mapping.getBackendPort(), responseListener);
-                    } catch (MappingException e2) {
-                        log.error("cannot map request", e2);
-                        LifecycleEventHandlers.invokeExceptionHandler(e2, req);
-
-                        writeResponseToChannel(channel, req, HttpResponseFactory.createISEResponse());
-                        return;
-                    } catch (UpstreamException ue) {
-                        LifecycleEventHandlers.invokeResponseEventHandlers(req, ue.getResponse());
-                        writeResponseToChannel(channel, req, ue.getResponse());
-                        return;
-                    }
-                }
-            } else {
+            if (mapping == null) {
                 // if no mapping found
                 HttpResponse response = HttpResponseFactory.createNotFoundResponse();
                 writeResponseToChannel(channel, req, response);
                 return;
+            }
+            if (mapping.getAuthType() != null) {
+                String accessToken = null;
+                List<String> authorizationHeaders = req.headers().getAll(HttpHeaders.Names.AUTHORIZATION);
+                for (String header : authorizationHeaders) {
+                    accessToken = AccessTokenValidator.extractAccessToken(header);
+                    if (accessToken != null) {
+                        break;
+                    }
+                }
+
+                if (accessToken == null) {
+                    writeResponseToChannel(channel, req, HttpResponseFactory.createUnauthorizedResponse(ACCESS_TOKEN_REQUIRED));
+                    return;
+                }
+
+                BasicFilter filter;
+                try {
+                    filter = getMappingFilter(mapping, config, channel);
+                } catch (MappingException e2) {
+                    log.error("cannot map request", e2);
+                    LifecycleEventHandlers.invokeExceptionHandler(e2, req);
+                    writeResponseToChannel(channel, req, HttpResponseFactory.createISEResponse());
+                    return;
+                }
+
+                final ResponseListener responseListener = createResponseListener(filter, config.getErrors(), channel, req);
+
+                final HttpRequest request = req;
+                final MappingEndpoint endpoint = mapping;
+                final MappingConfig conf = config;
+
+                // validates access token
+                TokenValidationListener validatorListener = new TokenValidationListener() {
+                    @Override
+                    public void responseReceived(HttpMessage response) {
+                        HttpMessage tokenResponse = response;
+                        if (response instanceof HttpResponse) {
+                            HttpResponse tokenValidationResponse = (HttpResponse) response;
+                            if (!HttpResponseStatus.OK.equals(tokenValidationResponse.getStatus())) {
+                                writeResponseToChannel(channel, request, HttpResponseFactory.createUnauthorizedResponse(INVALID_ACCESS_TOKEN));
+                                return;
+                            }
+                            String tokenContent = tokenValidationResponse.getContent().toString(CharsetUtil.UTF_8);
+                            boolean scopeOk = AccessTokenValidator.validateTokenScope(tokenContent, endpoint.getScope());
+                            if (!scopeOk) {
+                                log.debug("access token scope not valid");
+                                writeResponseToChannel(channel, request, HttpResponseFactory.createUnauthorizedResponse(INVALID_ACCESS_TOKEN_SCOPE));
+                                return;
+                            }
+
+                            String userId = BasicAction.getUserId(tokenValidationResponse);
+                            if ((MappingEndpoint.AUTH_TYPE_USER.equals(endpoint.getAuthType()) && (userId != null && userId.length() > 0)) ||
+                                    MappingEndpoint.AUTH_TYPE_CLIENT_APP.equals(endpoint.getAuthType())) {
+                                try {
+                                    HttpRequest mappedReq = mapRequest(request, endpoint, conf, tokenValidationResponse);
+                                    channel.getPipeline().getContext("handler").setAttachment(responseListener);
+                                    client.send(mappedReq, endpoint.getBackendHost(), endpoint.getBackendPort(), responseListener);
+                                } catch (MappingException e) {
+                                    log.error("cannot map request", e);
+                                    LifecycleEventHandlers.invokeExceptionHandler(e, request);
+
+                                    writeResponseToChannel(channel, request, HttpResponseFactory.createISEResponse());
+                                    return;
+                                } catch (UpstreamException ue) {
+                                    writeResponseToChannel(channel, request, ue.getResponse());
+                                    return;
+                                }
+                            } else {
+                                writeResponseToChannel(channel, request, HttpResponseFactory.createUnauthorizedResponse(INVALID_ACCESS_TOKEN_TYPE));
+                                return;
+                            }
+                        } else {
+                            ChannelFuture future = channel.write(tokenResponse);
+                            setConnectTimeout(channel);
+                            future.addListener(ChannelFutureListener.CLOSE);
+                        }
+                    }
+                };
+
+                channel.getPipeline().getContext("handler").setAttachment(validatorListener);
+                if (ServerConfig.getTokenValidateHost() == null || ServerConfig.getTokenValidateHost().isEmpty() || ServerConfig.getTokenValidatePort() == null) {
+                    log.error("token.validation.host and token.validation.port properties are not set. Cannot validate access token.");
+                    writeResponseToChannel(channel, request, HttpResponseFactory.createUnauthorizedResponse(INVALID_ACCESS_TOKEN));
+                } else {
+                    HttpRequest validateReq = createTokenValidateRequest(accessToken);
+                    client.sendValidation(validateReq, ServerConfig.getTokenValidateHost(), ServerConfig.getTokenValidatePort(), validatorListener);
+                }
+            } else {
+                try {
+                    BasicFilter filter = getMappingFilter(mapping, config, channel);
+                    ResponseListener responseListener = createResponseListener(filter, config.getErrors(), channel, req);
+
+                    channel.getPipeline().getContext("handler").setAttachment(responseListener);
+
+                    HttpRequest mappedReq = mapRequest(req, mapping, config, null);
+                    client.send(mappedReq, mapping.getBackendHost(), mapping.getBackendPort(), responseListener);
+                } catch (MappingException e2) {
+                    log.error("cannot map request", e2);
+                    LifecycleEventHandlers.invokeExceptionHandler(e2, req);
+
+                    writeResponseToChannel(channel, req, HttpResponseFactory.createISEResponse());
+                    return;
+                } catch (UpstreamException ue) {
+                    LifecycleEventHandlers.invokeResponseEventHandlers(req, ue.getResponse());
+                    writeResponseToChannel(channel, req, ue.getResponse());
+                    return;
+                }
             }
         } else {
             log.debug("write response here from the BE");
