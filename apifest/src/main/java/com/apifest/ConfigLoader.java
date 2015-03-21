@@ -214,20 +214,22 @@ public final class ConfigLoader {
             config.setActions(getActionsMap(mappings));
         } else {
             // search for actions per endpoint
-            Map<String, String> actions = new HashMap<String, String>();
+            Map<String, String> allActions = new HashMap<String, String>();
             Map<MappingPattern, MappingEndpoint> maps = config.getMappings();
             for(MappingEndpoint endpoint : maps.values()) {
-                if (endpoint.getAction() != null) {
-                    MappingAction action = endpoint.getAction();
-                    String actionName = action.getName();
-                    if (actionName == null) {
-                        actionName = action.getActionClassName();
+                if (endpoint.getActions() != null) {
+                    List<MappingAction> actions = endpoint.getActions();
+                    for (MappingAction action : actions) {
+                        String actionName = action.getName();
+                        if (actionName == null) {
+                            actionName = action.getActionClassName();
+                        }
+                        allActions.put(actionName, action.getActionClassName());
                     }
-                    actions.put(actionName, action.getActionClassName());
                 }
             }
-            if (actions.size() > 0) {
-                config.setActions(actions);
+            if (allActions.size() > 0) {
+                config.setActions(allActions);
             }
         }
     }

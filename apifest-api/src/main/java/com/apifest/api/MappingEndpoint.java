@@ -17,6 +17,7 @@
 package com.apifest.api;
 
 import java.io.Serializable;
+import java.util.List;
 
 import javax.xml.bind.annotation.XmlAccessType;
 import javax.xml.bind.annotation.XmlAccessorType;
@@ -69,7 +70,7 @@ public class MappingEndpoint implements Serializable {
     private String externalEndpoint;
 
     @XmlElement(name = "action", type = MappingAction.class)
-    private MappingAction action;
+    private List<MappingAction> actions;
 
     @XmlElement(name = "filter", type = ResponseFilter.class)
     private ResponseFilter filter;
@@ -78,14 +79,14 @@ public class MappingEndpoint implements Serializable {
     }
 
     public MappingEndpoint(String external, String internal, String method, String authRequired, String scope,
-            MappingAction action, ResponseFilter filter, String varExpr, String varName,
+            List<MappingAction> actions, ResponseFilter filter, String varExpr, String varName,
             String backendHost, Integer backendPort) {
         this.externalEndpoint = external;
         this.internalEndpoint = internal;
         this.method = method;
         this.authType = authRequired;
         this.scope = scope;
-        this.action = action;
+        this.actions = actions;
         this.filter = filter;
         this.varExpression = varExpr;
         this.varName = varName;
@@ -133,12 +134,12 @@ public class MappingEndpoint implements Serializable {
         this.scope = scope;
     }
 
-    public MappingAction getAction() {
-        return action;
+    public List<MappingAction> getActions() {
+        return actions;
     }
 
-    public void setAction(MappingAction action) {
-        this.action = action;
+    public void setActions(List<MappingAction> actions) {
+        this.actions = actions;
     }
 
     public ResponseFilter getFilter() {

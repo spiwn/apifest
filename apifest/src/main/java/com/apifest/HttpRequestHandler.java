@@ -44,6 +44,7 @@ import org.slf4j.LoggerFactory;
 
 import com.apifest.api.BasicAction;
 import com.apifest.api.BasicFilter;
+import com.apifest.api.MappingAction;
 import com.apifest.api.MappingEndpoint;
 import com.apifest.api.MappingException;
 import com.apifest.api.UpstreamException;
@@ -250,9 +251,11 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
         BaseMapper mapper = new BaseMapper();
         request.headers().set(HttpHeaders.Names.HOST, mapping.getBackendHost());
         HttpRequest req = mapper.map(request, mapping.getInternalEndpoint());
-        if (mapping.getAction() != null) {
-            BasicAction action = config.getAction(mapping.getAction());
-            req = action.execute(req, req.getUri(), tokenValidationResponse);
+        List<MappingAction> actions = mapping.getActions();
+        if (actions != null && !actions.isEmpty()) {
+            for (MappingAction action : actions) {
+                req = config.getAction(action).execute(req, req.getUri(), tokenValidationResponse);
+            }
         }
         return req;
     }

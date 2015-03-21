@@ -27,6 +27,7 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -97,7 +98,7 @@ public class ConfigLoaderTest {
 
         MappingEndpoint endpoint = config.get(0).getMappingEndpoint("/v0.1/me", "GET");
         assertEquals(endpoint.getInternalEndpoint(), "/customer/{customerId}");
-        assertEquals(endpoint.getAction().getName(), "ReplaceCustomerId");
+        assertEquals(endpoint.getActions().get(0).getName(), "ReplaceCustomerId");
     }
 
     @Test
@@ -121,7 +122,7 @@ public class ConfigLoaderTest {
         MappingAction mappingAction = new MappingAction();
         mappingAction.setName("ReplaceCustomerId");
         MappingEndpoint endpoint = new MappingEndpoint();
-        endpoint.setAction(mappingAction);
+        endpoint.setActions(Arrays.asList(mappingAction));
 
         ConfigLoader.jarClassLoader = mock(URLClassLoader.class);
         doReturn(ReplaceCustomerIdAction.class).when(ConfigLoader.jarClassLoader).loadClass(ReplaceCustomerIdAction.class.getCanonicalName());
@@ -280,7 +281,7 @@ public class ConfigLoaderTest {
             MappingEndpoint endpoint = new MappingEndpoint();
             MappingAction addAction = new MappingAction();
             addAction.setName("ReplaceCustomerId");
-            endpoint.setAction(addAction);
+            endpoint.setActions(Arrays.asList(addAction));
             endpoint.setInternalEndpoint("/v0.1/customer/{customerId}");
             endpoint.setExternalEndpoint("/v0.1/me");
 

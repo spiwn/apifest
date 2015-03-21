@@ -48,13 +48,11 @@ public class AccessTokenValidator {
         if(endpointScope == null) {
             return true;
         }
-        else {
-            List<String> allowedScopes = Arrays.asList(endpointScope.split(" "));
-            String [] scopes = tokenScope.split(" ");
-            for (String scope : scopes) {
-                if (allowedScopes.contains(scope)) {
-                    return true;
-                }
+        List<String> allowedScopes = Arrays.asList(endpointScope.split(" "));
+        String [] scopes = tokenScope.split(" ");
+        for (String scope : scopes) {
+            if (allowedScopes.contains(scope)) {
+                return true;
             }
         }
         return false;
