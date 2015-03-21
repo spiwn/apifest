@@ -163,7 +163,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
                                     try {
                                         HttpRequest mappedReq = mapRequest(request, endpoint, conf, tokenValidationResponse);
                                         channel.getPipeline().getContext("handler").setAttachment(responseListener);
-                                        client.send(mappedReq, endpoint.getBackendHost(), Integer.valueOf(endpoint.getBackendPort()), responseListener);
+                                        client.send(mappedReq, endpoint.getBackendHost(), endpoint.getBackendPort(), responseListener);
                                     } catch (MappingException e) {
                                         log.error("cannot map request", e);
                                         LifecycleEventHandlers.invokeExceptionHandler(e, request);
@@ -202,7 +202,7 @@ public class HttpRequestHandler extends SimpleChannelUpstreamHandler {
                         channel.getPipeline().getContext("handler").setAttachment(responseListener);
 
                         HttpRequest mappedReq = mapRequest(req, mapping, config, null);
-                        client.send(mappedReq, mapping.getBackendHost(), Integer.valueOf(mapping.getBackendPort()), responseListener);
+                        client.send(mappedReq, mapping.getBackendHost(), mapping.getBackendPort(), responseListener);
                     } catch (MappingException e2) {
                         log.error("cannot map request", e2);
                         LifecycleEventHandlers.invokeExceptionHandler(e2, req);
